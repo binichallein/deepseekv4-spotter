@@ -60,6 +60,13 @@ So your private webhook URL will not be committed by default.
 From repo root:
 
 ```bash
+chmod +x install.sh
+bash install.sh
+```
+
+Then start service:
+
+```bash
 python lite_server.py \
   --interval-seconds 600 \
   --port 8000
