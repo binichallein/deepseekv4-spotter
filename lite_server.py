@@ -767,6 +767,7 @@ function renderOfficial() {
   const latest = findLatestHomepageModel();
   const model = latest?.payload?.chosen || t('n_a');
   const changed = model !== t('n_a') && model.toLowerCase() !== BASELINE_MODEL;
+  const lastFetchIso = state.cfg?.last_poll_attempt_at || latest?.fetched_at;
 
   document.getElementById('officialModel').textContent = model;
 
@@ -776,7 +777,7 @@ function renderOfficial() {
 
   document.getElementById('officialNote').textContent = fmt(t('officialNote'), {
     baseline: BASELINE_MODEL,
-    lastFetch: fmtTime(latest?.fetched_at),
+    lastFetch: fmtTime(lastFetchIso),
   });
 }
 
