@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Dict
 from urllib.parse import parse_qs, urlparse
 
 from .config import get_settings
 from .db import connect, init_db, list_events
 from .lite_poll import poll_homepage_once
+from .runtime_settings import load_runtime_settings, save_uploaded_mp3, update_runtime_settings
+
+
+_DEFAULT_MP3 = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "闹钟 2-哔声_爱给网_aigei_com.mp3"))
 
 
 _HTML = """<!doctype html>
@@ -288,6 +294,30 @@ _HTML = """<!doctype html>
     .k { color: var(--muted); font-family: var(--mono); }
     .v { text-align: right; word-break: break-word; }
 
+    .set-box { margin-top: 10px; display: grid; gap: 8px; }
+    .set-box label { font-size: 12px; color: var(--muted); }
+    .set-box input[type="text"], .set-box input[type="url"], .set-box input[type="file"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(0,0,0,0.22);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .set-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .set-msg {
+      margin-top: 6px;
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--muted);
+      min-height: 16px;
+      word-break: break-word;
+    }
+
     .events { margin-top: 8px; display: grid; gap: 8px; max-height: 420px; overflow: auto; }
     .evt {
       border: 1px solid var(--line);
@@ -393,6 +423,33 @@ _HTML = """<!doctype html>
       </div>
 
       <section class=\"panel\" style=\"margin-top:10px\">
+        <h4>Custom Settings</h4>
+        <div class=\"set-box\">
+          <label>Webhook URL (Feishu flow webhook)</label>
+          <input type=\"url\" id=\"webhookInput\" placeholder=\"https://www.feishu.cn/flow/api/trigger-webhook/...\" />
+          <div class=\"set-actions\">
+            <button id=\"saveWebhookBtn\">Save Webhook</button>
+            <button id=\"clearWebhookBtn\">Clear Webhook</button>
+          </div>
+
+          <label>Upload custom MP3 and use it</label>
+          <input type=\"file\" id=\"audioFile\" accept=\".mp3,audio/mpeg\" />
+          <div class=\"set-actions\">
+            <button id=\"uploadAudioBtn\">Upload MP3</button>
+            <button id=\"useDefaultAudioBtn\">Use Default Music</button>
+          </div>
+
+          <label>Or set MP3 absolute path manually</label>
+          <input type=\"text\" id=\"audioPathInput\" placeholder=\"/abs/path/to/your.mp3\" />
+          <div class=\"set-actions\">
+            <button id=\"setAudioPathBtn\">Use This Path</button>
+          </div>
+
+          <div class=\"set-msg\" id=\"settingsMsg\"></div>
+        </div>
+      </section>
+
+      <section class=\"panel\" style=\"margin-top:10px\">
         <h4>Event Stream</h4>
         <div class=\"events\" id=\"events\"></div>
       </section>
@@ -414,6 +471,16 @@ async function getJSON(url, opts) {
   return await r.json();
 }
 
+async function postJSON(url, payload) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return await r.json();
+}
+
 function fmtTime(iso) {
   if (!iso) return 'n/a';
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
@@ -427,8 +494,12 @@ function githubSignals() {
   return state.events.filter((e) => e.source === 'github_watch' && e.kind === 'github_v4_signal');
 }
 
-function clsFor(boolLike) {
-  return boolLike ? 'ok' : 'warn';
+function setSettingsMsg(msg, level) {
+  const el = document.getElementById('settingsMsg');
+  el.textContent = msg || '';
+  if (level === 'ok') el.style.color = '#66f3a6';
+  else if (level === 'err') el.style.color = '#ff7c8b';
+  else el.style.color = 'rgba(233,248,255,0.72)';
 }
 
 function renderTop() {
@@ -533,8 +604,10 @@ function renderDetail() {
     cfg.appendChild(kvRow('homepage', state.cfg.homepage_url));
     cfg.appendChild(kvRow('repos', (state.cfg.watch_github_repos || []).join(', ')));
     cfg.appendChild(kvRow('regex', state.cfg.watch_deepseek_v4_regex));
-    cfg.appendChild(kvRow('webhook', state.cfg.feishu_webhook_enabled ? 'enabled' : 'disabled'));
-    cfg.appendChild(kvRow('audio', state.cfg.audio_enabled ? 'enabled' : 'disabled'));
+    cfg.appendChild(kvRow('webhook_enabled', state.cfg.feishu_webhook_enabled ? 'yes' : 'no'));
+    cfg.appendChild(kvRow('audio_enabled', state.cfg.audio_enabled ? 'yes' : 'no'));
+    cfg.appendChild(kvRow('active_audio', state.cfg.audio_path || 'n/a'));
+    cfg.appendChild(kvRow('audio_mode', state.cfg.audio_mode || 'default'));
     cfg.appendChild(kvRow('alert_once', state.cfg.alert_once ? 'on' : 'off'));
   }
 
@@ -554,6 +627,12 @@ function renderDetail() {
     poll.appendChild(kvRow('alert_triggered', p.alert ? 'yes' : 'no'));
     if (p.alert?.signal) poll.appendChild(kvRow('alert_signal', p.alert.signal));
   }
+
+  const webhookInput = document.getElementById('webhookInput');
+  if (state.cfg?.webhook_url) webhookInput.value = state.cfg.webhook_url;
+
+  const audioPathInput = document.getElementById('audioPathInput');
+  if (state.cfg?.audio_path) audioPathInput.value = state.cfg.audio_path;
 }
 
 function renderEvents() {
@@ -649,9 +728,111 @@ function setupToggle() {
   });
 }
 
+async function saveWebhook() {
+  const v = document.getElementById('webhookInput').value.trim();
+  try {
+    const res = await postJSON('/api/settings', { webhook_url: v });
+    state.cfg = res.config;
+    setSettingsMsg('Webhook updated.', 'ok');
+    renderAll();
+  } catch (err) {
+    setSettingsMsg(`Webhook update failed: ${err.message}`, 'err');
+  }
+}
+
+async function clearWebhook() {
+  try {
+    const res = await postJSON('/api/settings', { webhook_url: '' });
+    state.cfg = res.config;
+    document.getElementById('webhookInput').value = '';
+    setSettingsMsg('Webhook cleared.', 'ok');
+    renderAll();
+  } catch (err) {
+    setSettingsMsg(`Clear webhook failed: ${err.message}`, 'err');
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const txt = String(reader.result || '');
+      const idx = txt.indexOf('base64,');
+      if (idx < 0) {
+        reject(new Error('invalid base64 data')); return;
+      }
+      resolve(txt.slice(idx + 7));
+    };
+    reader.onerror = () => reject(new Error('read file failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAudio() {
+  const fileInput = document.getElementById('audioFile');
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) {
+    setSettingsMsg('Please choose an mp3 file first.', 'warn');
+    return;
+  }
+
+  try {
+    const b64 = await fileToBase64(file);
+    const res = await postJSON('/api/upload_audio', {
+      filename: file.name,
+      content_base64: b64,
+    });
+    state.cfg = res.config;
+    document.getElementById('audioPathInput').value = res.path || '';
+    fileInput.value = '';
+    setSettingsMsg('Custom audio uploaded and activated.', 'ok');
+    renderAll();
+  } catch (err) {
+    setSettingsMsg(`Upload audio failed: ${err.message}`, 'err');
+  }
+}
+
+async function setAudioPath() {
+  const p = document.getElementById('audioPathInput').value.trim();
+  if (!p) {
+    setSettingsMsg('Please provide an audio path.', 'warn');
+    return;
+  }
+
+  try {
+    const res = await postJSON('/api/settings', { alert_mp3_path: p });
+    state.cfg = res.config;
+    setSettingsMsg('Custom audio path activated.', 'ok');
+    renderAll();
+  } catch (err) {
+    setSettingsMsg(`Set audio path failed: ${err.message}`, 'err');
+  }
+}
+
+async function useDefaultAudio() {
+  try {
+    const res = await postJSON('/api/settings', { alert_mp3_mode: 'default' });
+    state.cfg = res.config;
+    document.getElementById('audioPathInput').value = state.cfg.audio_path || '';
+    setSettingsMsg('Switched to default audio.', 'ok');
+    renderAll();
+  } catch (err) {
+    setSettingsMsg(`Switch default audio failed: ${err.message}`, 'err');
+  }
+}
+
+function setupSettingsActions() {
+  document.getElementById('saveWebhookBtn').addEventListener('click', saveWebhook);
+  document.getElementById('clearWebhookBtn').addEventListener('click', clearWebhook);
+  document.getElementById('uploadAudioBtn').addEventListener('click', uploadAudio);
+  document.getElementById('setAudioPathBtn').addEventListener('click', setAudioPath);
+  document.getElementById('useDefaultAudioBtn').addEventListener('click', useDefaultAudio);
+}
+
 async function boot() {
   await Promise.all([loadConfig(), loadEvents()]);
   setupToggle();
+  setupSettingsActions();
   renderAll();
 }
 
@@ -660,6 +841,28 @@ boot();
 </script>
 </body>
 </html>"""
+
+
+def _build_config_payload() -> Dict[str, Any]:
+    s = get_settings()
+    runtime = load_runtime_settings()
+
+    return {
+        "provider": s.provider,
+        "homepage_url": s.homepage_url,
+        "poll_interval_seconds": s.poll_interval_seconds,
+        "watch_github_repos": s.watch_github_repos,
+        "watch_deepseek_v4_regex": s.watch_deepseek_v4_regex,
+        "feishu_webhook_enabled": bool(s.feishu_webhook_url),
+        "webhook_url": s.feishu_webhook_url,
+        "audio_enabled": bool(s.alert_mp3_path),
+        "audio_path": s.alert_mp3_path,
+        "default_audio_path": _DEFAULT_MP3 if os.path.exists(_DEFAULT_MP3) else None,
+        "audio_mode": "custom" if "alert_mp3_path" in runtime else "default",
+        "alert_loops": s.alert_loops,
+        "alert_interval_seconds": s.alert_interval_seconds,
+        "alert_once": s.alert_once,
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -673,6 +876,32 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_json(self, code: int, data: Dict[str, Any]) -> None:
+        self._send(code, json.dumps(data, ensure_ascii=True).encode("utf-8"), "application/json; charset=utf-8")
+
+    def _read_json_body(self) -> Dict[str, Any]:
+        raw_len = self.headers.get("Content-Length") or "0"
+        try:
+            n = int(raw_len)
+        except ValueError:
+            n = 0
+
+        if n <= 0:
+            return {}
+
+        # Hard limit 25MB JSON body to avoid abuse.
+        if n > 25 * 1024 * 1024:
+            raise ValueError("payload_too_large")
+
+        raw = self.rfile.read(n)
+        if not raw:
+            return {}
+
+        data = json.loads(raw.decode("utf-8"))
+        if isinstance(data, dict):
+            return data
+        return {}
+
     def do_GET(self) -> None:  # noqa: N802
         p = urlparse(self.path)
         if p.path == "/":
@@ -680,22 +909,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if p.path == "/api/config":
-            s = get_settings()
-            payload = {
-                "provider": s.provider,
-                "homepage_url": s.homepage_url,
-                "poll_interval_seconds": s.poll_interval_seconds,
-                "watch_github_repos": s.watch_github_repos,
-                "watch_deepseek_v4_regex": s.watch_deepseek_v4_regex,
-                "feishu_webhook_enabled": bool(s.feishu_webhook_url),
-                "audio_enabled": bool(s.alert_mp3_path),
-                "audio_path": s.alert_mp3_path,
-                "alert_loops": s.alert_loops,
-                "alert_interval_seconds": s.alert_interval_seconds,
-                "alert_once": s.alert_once,
-            }
-            body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
-            self._send(200, body, "application/json; charset=utf-8")
+            self._send_json(200, _build_config_payload())
             return
 
         if p.path == "/api/events":
@@ -712,18 +926,87 @@ class Handler(BaseHTTPRequestHandler):
                 init_db(conn)
                 events = list_events(conn, provider=s.provider, limit=limit)
 
-            body = json.dumps({"events": events}, ensure_ascii=True).encode("utf-8")
-            self._send(200, body, "application/json; charset=utf-8")
+            self._send_json(200, {"events": events})
             return
 
         self._send(404, b"not found", "text/plain; charset=utf-8")
 
     def do_POST(self) -> None:  # noqa: N802
         p = urlparse(self.path)
+
         if p.path == "/api/poll":
             res = poll_homepage_once()
-            body = json.dumps(res, ensure_ascii=True).encode("utf-8")
-            self._send(200, body, "application/json; charset=utf-8")
+            self._send_json(200, res)
+            return
+
+        if p.path == "/api/settings":
+            try:
+                body = self._read_json_body()
+            except Exception as e:
+                self._send_json(400, {"ok": False, "error": f"invalid_json:{type(e).__name__}"})
+                return
+
+            set_values: Dict[str, Any] = {}
+            clear_keys = []
+
+            if "webhook_url" in body:
+                webhook = str(body.get("webhook_url") or "").strip()
+                if webhook:
+                    set_values["feishu_webhook_url"] = webhook
+                else:
+                    clear_keys.append("feishu_webhook_url")
+
+            if body.get("alert_mp3_mode") == "default":
+                clear_keys.append("alert_mp3_path")
+
+            if "alert_mp3_path" in body:
+                pth = str(body.get("alert_mp3_path") or "").strip()
+                if not pth:
+                    clear_keys.append("alert_mp3_path")
+                else:
+                    if not pth.lower().endswith(".mp3"):
+                        self._send_json(400, {"ok": False, "error": "audio_path_must_be_mp3"})
+                        return
+                    if not os.path.exists(pth):
+                        self._send_json(400, {"ok": False, "error": "audio_path_not_found"})
+                        return
+                    set_values["alert_mp3_path"] = os.path.abspath(pth)
+
+            update_runtime_settings(set_values=set_values, clear_keys=clear_keys)
+            self._send_json(200, {"ok": True, "config": _build_config_payload()})
+            return
+
+        if p.path == "/api/upload_audio":
+            try:
+                body = self._read_json_body()
+            except Exception as e:
+                self._send_json(400, {"ok": False, "error": f"invalid_json:{type(e).__name__}"})
+                return
+
+            filename = str(body.get("filename") or "custom.mp3")
+            b64 = str(body.get("content_base64") or "").strip()
+            if not b64:
+                self._send_json(400, {"ok": False, "error": "missing_content_base64"})
+                return
+
+            try:
+                content = base64.b64decode(b64, validate=True)
+            except Exception:
+                self._send_json(400, {"ok": False, "error": "invalid_base64"})
+                return
+
+            if len(content) > 20 * 1024 * 1024:
+                self._send_json(400, {"ok": False, "error": "audio_file_too_large"})
+                return
+
+            if not filename.lower().endswith(".mp3"):
+                self._send_json(400, {"ok": False, "error": "file_extension_must_be_mp3"})
+                return
+
+            out_path = save_uploaded_mp3(filename=filename, content=content)
+            update_runtime_settings(set_values={"alert_mp3_path": out_path})
+
+            self._send_json(200, {"ok": True, "path": out_path, "config": _build_config_payload()})
             return
 
         self._send(404, b"not found", "text/plain; charset=utf-8")
@@ -761,7 +1044,7 @@ def main() -> None:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--interval-seconds", type=int, default=None, help="Auto-poll interval; default 600; 0 disables")
-    ap.add_argument("--feishu-webhook-url", default=None, help="If set, send webhook on v4 signals")
+    ap.add_argument("--feishu-webhook-url", default=None, help="Optional webhook on startup")
     args = ap.parse_args()
 
     if args.interval_seconds is not None:

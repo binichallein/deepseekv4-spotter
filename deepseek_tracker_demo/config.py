@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from typing import List
 
+from .runtime_settings import load_runtime_settings
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -128,6 +130,14 @@ def get_settings() -> Settings:
     rss_feeds = _csv_env("DEEPSEEK_RSS_FEEDS")
 
     github_token = (os.getenv("GITHUB_TOKEN") or "").strip() or None
+
+    # Runtime overrides set by the web UI.
+    runtime = load_runtime_settings()
+    if "feishu_webhook_url" in runtime:
+        feishu_webhook_url = (str(runtime.get("feishu_webhook_url") or "")).strip() or None
+    if "alert_mp3_path" in runtime:
+        v = (str(runtime.get("alert_mp3_path") or "")).strip()
+        alert_mp3_path = v or default_mp3 or None
 
     return Settings(
         db_path=db_path,

@@ -4,4 +4,7 @@ __pycache__/
 *.sqlite3
 *.log
 *.mp3
+!闹钟 2-哔声_爱给网_aigei_com.mp3
+deepseek_tracker_demo/user_audio/
+deepseek_tracker_demo/runtime_settings.json
 *:Zone.Identifier
