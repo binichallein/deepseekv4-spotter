@@ -132,6 +132,29 @@ _HTML = """<!doctype html>
 
     button:disabled { opacity: 0.6; cursor: not-allowed; }
 
+    .icon-link {
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      text-decoration: none;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.02) inset;
+    }
+
+    .icon-link:hover {
+      text-decoration: none;
+      background: #f0f6fc;
+    }
+
+    .icon-link img {
+      width: 22px;
+      height: 22px;
+      display: block;
+    }
+
     .status {
       margin-top: 12px;
       border: 1px solid var(--line);
@@ -364,36 +387,47 @@ _HTML = """<!doctype html>
         <div class=\"logo\">DSV4</div>
         <div>
           <h1 class=\"title\">DeepSeekV4 Spotter</h1>
-          <p class=\"subtitle\">Realtime monitor for DeepSeek v4 signals from official site and selected GitHub repos.</p>
+          <p id=\"subtitleText\" class=\"subtitle\">Realtime monitor for DeepSeek v4 signals from official site and selected GitHub repos.</p>
         </div>
       </div>
       <div class=\"actions\">
         <button id=\"pollBtn\">Run Poll Now</button>
         <button id=\"toggleBtn\">Open Detailed Panel</button>
+        <button id=\"langBtn\">中文 / EN</button>
+        <a
+          class=\"icon-link\"
+          href=\"https://github.com/binichallein/deepseekv4-spotter\"
+          target=\"_blank\"
+          rel=\"noreferrer\"
+          title=\"GitHub\"
+          aria-label=\"GitHub Repository\"
+        >
+          <img src=\"https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\" alt=\"GitHub\" />
+        </a>
       </div>
     </header>
 
     <div id=\"statusLine\" class=\"status\">loading...</div>
 
     <section class=\"monitor\">
-      <h2>Signal Monitor</h2>
+      <h2 id=\"monitorTitle\">Signal Monitor</h2>
       <div class=\"cards\">
         <article class=\"card\">
-          <h3>Official Site</h3>
+          <h3 id=\"officialTitle\">Official Site</h3>
           <div class=\"main\" id=\"officialModel\">n/a</div>
           <div class=\"flag\" id=\"officialFlag\">waiting</div>
           <div class=\"small\" id=\"officialNote\">Baseline target: v3.2</div>
         </article>
 
         <article class=\"card\">
-          <h3>GitHub Track</h3>
+          <h3 id=\"ghTitle\">GitHub Track</h3>
           <div class=\"main\" id=\"ghMain\">0</div>
           <div class=\"flag\" id=\"ghFlag\">waiting</div>
           <div class=\"repos\" id=\"repoRows\"></div>
         </article>
 
         <article class=\"card\">
-          <h3>Alert Engine</h3>
+          <h3 id=\"alertTitle\">Alert Engine</h3>
           <div class=\"main\" id=\"alertMain\">idle</div>
           <div class=\"flag\" id=\"alertFlag\">no trigger</div>
           <div class=\"small\" id=\"alertNote\">Webhook + audio will fire when v4 signal appears.</div>
@@ -403,7 +437,7 @@ _HTML = """<!doctype html>
 
     <section class=\"details\" id=\"details\" hidden>
       <div class=\"details-head\">
-        <strong>Detailed Panel</strong>
+        <strong id=\"detailPanelTitle\">Detailed Panel</strong>
         <div>
           <a class=\"btn-link\" href=\"/api/config\" target=\"_blank\" rel=\"noreferrer\">/api/config</a>
           <a class=\"btn-link\" href=\"/api/events\" target=\"_blank\" rel=\"noreferrer\">/api/events</a>
@@ -412,34 +446,34 @@ _HTML = """<!doctype html>
 
       <div class=\"details-grid\">
         <section class=\"panel\">
-          <h4>Runtime Config</h4>
+          <h4 id=\"runtimeConfigTitle\">Runtime Config</h4>
           <div class=\"kv\" id=\"cfgRows\"></div>
         </section>
 
         <section class=\"panel\">
-          <h4>Last Poll Snapshot</h4>
+          <h4 id=\"pollSnapshotTitle\">Last Poll Snapshot</h4>
           <div class=\"kv\" id=\"pollRows\"></div>
         </section>
       </div>
 
       <section class=\"panel\" style=\"margin-top:10px\">
-        <h4>Custom Settings</h4>
+        <h4 id=\"customSettingsTitle\">Custom Settings</h4>
         <div class=\"set-box\">
-          <label>Webhook URL (Feishu flow webhook)</label>
+          <label id=\"webhookLabel\">Webhook URL (Feishu flow webhook)</label>
           <input type=\"url\" id=\"webhookInput\" placeholder=\"https://www.feishu.cn/flow/api/trigger-webhook/...\" />
           <div class=\"set-actions\">
             <button id=\"saveWebhookBtn\">Save Webhook</button>
             <button id=\"clearWebhookBtn\">Clear Webhook</button>
           </div>
 
-          <label>Upload custom MP3 and use it</label>
+          <label id=\"uploadMp3Label\">Upload custom MP3 and use it</label>
           <input type=\"file\" id=\"audioFile\" accept=\".mp3,audio/mpeg\" />
           <div class=\"set-actions\">
             <button id=\"uploadAudioBtn\">Upload MP3</button>
             <button id=\"useDefaultAudioBtn\">Use Default Music</button>
           </div>
 
-          <label>Or set MP3 absolute path manually</label>
+          <label id=\"audioPathLabel\">Or set MP3 absolute path manually</label>
           <input type=\"text\" id=\"audioPathInput\" placeholder=\"/abs/path/to/your.mp3\" />
           <div class=\"set-actions\">
             <button id=\"setAudioPathBtn\">Use This Path</button>
@@ -450,7 +484,7 @@ _HTML = """<!doctype html>
       </section>
 
       <section class=\"panel\" style=\"margin-top:10px\">
-        <h4>Event Stream</h4>
+        <h4 id=\"eventStreamTitle\">Event Stream</h4>
         <div class=\"events\" id=\"events\"></div>
       </section>
     </section>
@@ -461,9 +495,203 @@ const state = {
   cfg: null,
   poll: null,
   events: [],
+  lang: (localStorage.getItem('dsv4_lang') === 'en') ? 'en' : 'zh',
+  polling: false,
 };
 
 const BASELINE_MODEL = 'v3.2';
+
+const I18N = {
+  zh: {
+    pageTitle: 'DeepSeekV4 Spotter',
+    subtitle: '实时监控 DeepSeek 官网与指定 GitHub 仓库的 v4 信号。',
+    runPoll: '立即轮询',
+    polling: '轮询中...',
+    openPanel: '打开详细面板',
+    hidePanel: '收起详细面板',
+    monitorTitle: '信号监控',
+    officialTitle: '官网模型',
+    githubTitle: 'GitHub 追踪',
+    alertTitle: '告警引擎',
+    detailPanelTitle: '详细面板',
+    runtimeConfigTitle: '运行配置',
+    pollSnapshotTitle: '最近轮询快照',
+    customSettingsTitle: '自定义设置',
+    webhookLabel: 'Webhook 地址（飞书 flow webhook）',
+    webhookPlaceholder: 'https://your-webhook-url',
+    saveWebhook: '保存 Webhook',
+    clearWebhook: '清空 Webhook',
+    uploadMp3Label: '上传自定义 MP3 并立即使用',
+    uploadAudio: '上传 MP3',
+    useDefaultAudio: '恢复默认音乐',
+    audioPathLabel: '或手动填写 MP3 绝对路径',
+    audioPathPlaceholder: '/abs/path/to/your.mp3',
+    setAudioPath: '使用此路径',
+    eventStreamTitle: '事件流',
+    loading: '加载中...',
+    waiting: '等待中',
+    idle: '空闲',
+    noTrigger: '未触发',
+    statusLine: 'provider={provider} | 事件数={events} | 刷新时间={time}',
+    officialChanged: '已偏离基线',
+    officialStable: '基线稳定',
+    officialNote: '基线={baseline}，最近抓取={lastFetch}',
+    ghSignalFound: '发现新的 v4 信号',
+    ghNoSignal: '暂无 v4 信号',
+    repoSignal: '有信号',
+    repoNoChange: '无变化',
+    alertPreview: '检测到 v4 信号后将触发 Webhook + 音乐播放。',
+    triggered: '已触发',
+    alertActionDone: '动作执行成功',
+    alertPartial: '已触发（部分成功）',
+    alertDetail: 'webhook={webhook}, audio={audio}',
+    webhookUpdated: 'Webhook 已更新。',
+    webhookUpdateFailed: '更新 Webhook 失败',
+    webhookCleared: 'Webhook 已清空。',
+    clearWebhookFailed: '清空 Webhook 失败',
+    chooseMp3First: '请先选择 mp3 文件。',
+    uploadAudioOk: '自定义音频上传并启用成功。',
+    uploadAudioFailed: '上传音频失败',
+    provideAudioPath: '请填写音频路径。',
+    setAudioPathOk: '自定义音频路径已启用。',
+    setAudioPathFailed: '设置音频路径失败',
+    useDefaultAudioOk: '已切换到默认音频。',
+    useDefaultAudioFailed: '切换默认音频失败',
+    eventsEmpty: '暂无事件。',
+    noTitle: '(无标题)',
+    publishedAt: '发布时间',
+    fetchedAt: '抓取时间',
+    yes: '是',
+    no: '否',
+    on: '开',
+    off: '关',
+    n_a: 'n/a',
+    kv: {
+      provider: '提供方',
+      poll_interval: '轮询间隔',
+      homepage: '官网地址',
+      repos: '监控仓库',
+      regex: '匹配正则',
+      webhook_enabled: 'Webhook 启用',
+      audio_enabled: '音频启用',
+      active_audio: '当前音频',
+      audio_mode: '音频模式',
+      alert_once: '仅告警一次',
+      last_poll: '最近轮询',
+      homepage_prev: '官网上次模型',
+      homepage_new: '官网当前模型',
+      homepage_v4_transition: '是否 v4 切换',
+      github_matched: 'GitHub 命中数',
+      github_new_signals: 'GitHub 新信号',
+      alert_triggered: '是否触发告警',
+      alert_signal: '告警信号'
+    }
+  },
+  en: {
+    pageTitle: 'DeepSeekV4 Spotter',
+    subtitle: 'Realtime monitor for DeepSeek v4 signals from official site and selected GitHub repos.',
+    runPoll: 'Run Poll Now',
+    polling: 'Polling...',
+    openPanel: 'Open Detailed Panel',
+    hidePanel: 'Hide Detailed Panel',
+    monitorTitle: 'Signal Monitor',
+    officialTitle: 'Official Site',
+    githubTitle: 'GitHub Track',
+    alertTitle: 'Alert Engine',
+    detailPanelTitle: 'Detailed Panel',
+    runtimeConfigTitle: 'Runtime Config',
+    pollSnapshotTitle: 'Last Poll Snapshot',
+    customSettingsTitle: 'Custom Settings',
+    webhookLabel: 'Webhook URL (Feishu flow webhook)',
+    webhookPlaceholder: 'https://your-webhook-url',
+    saveWebhook: 'Save Webhook',
+    clearWebhook: 'Clear Webhook',
+    uploadMp3Label: 'Upload custom MP3 and use it',
+    uploadAudio: 'Upload MP3',
+    useDefaultAudio: 'Use Default Music',
+    audioPathLabel: 'Or set MP3 absolute path manually',
+    audioPathPlaceholder: '/abs/path/to/your.mp3',
+    setAudioPath: 'Use This Path',
+    eventStreamTitle: 'Event Stream',
+    loading: 'loading...',
+    waiting: 'waiting',
+    idle: 'idle',
+    noTrigger: 'no trigger',
+    statusLine: 'provider={provider} | events={events} | refreshed={time}',
+    officialChanged: 'changed from baseline',
+    officialStable: 'stable baseline',
+    officialNote: 'Baseline={baseline}, last_fetch={lastFetch}',
+    ghSignalFound: 'new v4 signal found',
+    ghNoSignal: 'no v4 signal yet',
+    repoSignal: 'signal',
+    repoNoChange: 'no change',
+    alertPreview: 'Webhook + audio will fire when v4 signal appears.',
+    triggered: 'triggered',
+    alertActionDone: 'action done',
+    alertPartial: 'triggered with partial result',
+    alertDetail: 'webhook={webhook}, audio={audio}',
+    webhookUpdated: 'Webhook updated.',
+    webhookUpdateFailed: 'Webhook update failed',
+    webhookCleared: 'Webhook cleared.',
+    clearWebhookFailed: 'Clear webhook failed',
+    chooseMp3First: 'Please choose an mp3 file first.',
+    uploadAudioOk: 'Custom audio uploaded and activated.',
+    uploadAudioFailed: 'Upload audio failed',
+    provideAudioPath: 'Please provide an audio path.',
+    setAudioPathOk: 'Custom audio path activated.',
+    setAudioPathFailed: 'Set audio path failed',
+    useDefaultAudioOk: 'Switched to default audio.',
+    useDefaultAudioFailed: 'Switch default audio failed',
+    eventsEmpty: 'No events yet.',
+    noTitle: '(no title)',
+    publishedAt: 'published',
+    fetchedAt: 'fetched',
+    yes: 'yes',
+    no: 'no',
+    on: 'on',
+    off: 'off',
+    n_a: 'n/a',
+    kv: {
+      provider: 'provider',
+      poll_interval: 'poll_interval',
+      homepage: 'homepage',
+      repos: 'repos',
+      regex: 'regex',
+      webhook_enabled: 'webhook_enabled',
+      audio_enabled: 'audio_enabled',
+      active_audio: 'active_audio',
+      audio_mode: 'audio_mode',
+      alert_once: 'alert_once',
+      last_poll: 'last_poll',
+      homepage_prev: 'homepage_prev',
+      homepage_new: 'homepage_new',
+      homepage_v4_transition: 'homepage_v4_transition',
+      github_matched: 'github_matched',
+      github_new_signals: 'github_new_signals',
+      alert_triggered: 'alert_triggered',
+      alert_signal: 'alert_signal'
+    }
+  }
+};
+
+function t(key) {
+  return I18N[state.lang]?.[key] ?? I18N.en[key] ?? key;
+}
+
+function tk(key) {
+  return I18N[state.lang]?.kv?.[key] ?? I18N.en?.kv?.[key] ?? key;
+}
+
+function fmt(template, values) {
+  return String(template || '').replace(/\{([a-zA-Z0-9_]+)\}/g, (_, k) => {
+    const v = values?.[k];
+    return (v === undefined || v === null) ? '' : String(v);
+  });
+}
+
+function langToggleText() {
+  return state.lang === 'zh' ? 'EN' : '中文';
+}
 
 async function getJSON(url, opts) {
   const r = await fetch(url, opts);
@@ -505,22 +733,28 @@ function setSettingsMsg(msg, level) {
 function renderTop() {
   const s = document.getElementById('statusLine');
   const now = new Date().toLocaleString();
-  s.textContent = `provider=${state.cfg?.provider || 'deepseek'} | events=${state.events.length} | refreshed=${now}`;
+  s.textContent = fmt(t('statusLine'), {
+    provider: state.cfg?.provider || 'deepseek',
+    events: state.events.length,
+    time: now,
+  });
 }
 
 function renderOfficial() {
   const latest = findLatestHomepageModel();
-  const model = latest?.payload?.chosen || 'n/a';
-  const changed = model !== 'n/a' && model.toLowerCase() !== BASELINE_MODEL;
+  const model = latest?.payload?.chosen || t('n_a');
+  const changed = model !== t('n_a') && model.toLowerCase() !== BASELINE_MODEL;
 
   document.getElementById('officialModel').textContent = model;
 
   const flag = document.getElementById('officialFlag');
   flag.className = `flag ${changed ? 'err' : 'ok'}`;
-  flag.textContent = changed ? 'changed from baseline' : 'stable baseline';
+  flag.textContent = changed ? t('officialChanged') : t('officialStable');
 
-  document.getElementById('officialNote').textContent =
-    `Baseline=${BASELINE_MODEL}, last_fetch=${fmtTime(latest?.fetched_at)}`;
+  document.getElementById('officialNote').textContent = fmt(t('officialNote'), {
+    baseline: BASELINE_MODEL,
+    lastFetch: fmtTime(latest?.fetched_at),
+  });
 }
 
 function renderGithub() {
@@ -536,7 +770,7 @@ function renderGithub() {
   const hasSignal = signals.length > 0;
   const flag = document.getElementById('ghFlag');
   flag.className = `flag ${hasSignal ? 'warn' : 'ok'}`;
-  flag.textContent = hasSignal ? 'new v4 signal found' : 'no v4 signal yet';
+  flag.textContent = hasSignal ? t('ghSignalFound') : t('ghNoSignal');
 
   for (const repo of cfgRepos) {
     const line = document.createElement('div');
@@ -548,7 +782,7 @@ function renderGithub() {
     const right = document.createElement('span');
     const yes = touched.has(repo);
     right.className = yes ? 'ok' : 'idle';
-    right.textContent = yes ? 'signal' : 'no change';
+    right.textContent = yes ? t('repoSignal') : t('repoNoChange');
 
     line.appendChild(left);
     line.appendChild(right);
@@ -564,21 +798,21 @@ function renderAlert() {
   const note = document.getElementById('alertNote');
 
   if (!a) {
-    main.textContent = 'idle';
+    main.textContent = t('idle');
     flag.className = 'flag warn';
-    flag.textContent = 'no trigger';
-    note.textContent = 'Webhook + audio will fire when v4 signal appears.';
+    flag.textContent = t('noTrigger');
+    note.textContent = t('alertPreview');
     return;
   }
 
-  main.textContent = a.signal || 'triggered';
+  main.textContent = a.signal || t('triggered');
   const ok = a.webhook?.ok === true || a.audio?.ok === true;
   flag.className = `flag ${ok ? 'ok' : 'warn'}`;
-  flag.textContent = ok ? 'action done' : 'triggered with partial result';
+  flag.textContent = ok ? t('alertActionDone') : t('alertPartial');
 
-  const wk = a.webhook?.ok === true ? 'ok' : a.webhook?.ok === false ? 'failed' : 'n/a';
-  const ad = a.audio?.ok === true ? 'ok' : a.audio?.ok === false ? 'failed' : 'n/a';
-  note.textContent = `webhook=${wk}, audio=${ad}`;
+  const wk = a.webhook?.ok === true ? 'ok' : a.webhook?.ok === false ? 'failed' : t('n_a');
+  const ad = a.audio?.ok === true ? 'ok' : a.audio?.ok === false ? 'failed' : t('n_a');
+  note.textContent = fmt(t('alertDetail'), { webhook: wk, audio: ad });
 }
 
 function kvRow(k, v) {
@@ -586,10 +820,10 @@ function kvRow(k, v) {
   row.className = 'row';
   const kk = document.createElement('span');
   kk.className = 'k';
-  kk.textContent = k;
+  kk.textContent = tk(k);
   const vv = document.createElement('span');
   vv.className = 'v';
-  vv.textContent = String(v ?? 'n/a');
+  vv.textContent = String(v ?? t('n_a'));
   row.appendChild(kk);
   row.appendChild(vv);
   return row;
@@ -604,27 +838,27 @@ function renderDetail() {
     cfg.appendChild(kvRow('homepage', state.cfg.homepage_url));
     cfg.appendChild(kvRow('repos', (state.cfg.watch_github_repos || []).join(', ')));
     cfg.appendChild(kvRow('regex', state.cfg.watch_deepseek_v4_regex));
-    cfg.appendChild(kvRow('webhook_enabled', state.cfg.feishu_webhook_enabled ? 'yes' : 'no'));
-    cfg.appendChild(kvRow('audio_enabled', state.cfg.audio_enabled ? 'yes' : 'no'));
-    cfg.appendChild(kvRow('active_audio', state.cfg.audio_path || 'n/a'));
+    cfg.appendChild(kvRow('webhook_enabled', state.cfg.feishu_webhook_enabled ? t('yes') : t('no')));
+    cfg.appendChild(kvRow('audio_enabled', state.cfg.audio_enabled ? t('yes') : t('no')));
+    cfg.appendChild(kvRow('active_audio', state.cfg.audio_path || t('n_a')));
     cfg.appendChild(kvRow('audio_mode', state.cfg.audio_mode || 'default'));
-    cfg.appendChild(kvRow('alert_once', state.cfg.alert_once ? 'on' : 'off'));
+    cfg.appendChild(kvRow('alert_once', state.cfg.alert_once ? t('on') : t('off')));
   }
 
   const poll = document.getElementById('pollRows');
   poll.innerHTML = '';
   const p = state.poll;
   if (!p) {
-    poll.appendChild(kvRow('last_poll', 'not run in this session'));
+    poll.appendChild(kvRow('last_poll', state.lang === 'zh' ? '本次会话尚未执行' : 'not run in this session'));
   } else {
     const hp = p.homepage || {};
     const gh = p.github_watch || {};
-    poll.appendChild(kvRow('homepage_prev', hp.prev_model || 'n/a'));
-    poll.appendChild(kvRow('homepage_new', hp.new_model || 'n/a'));
-    poll.appendChild(kvRow('homepage_v4_transition', hp.v4_transition ? 'yes' : 'no'));
+    poll.appendChild(kvRow('homepage_prev', hp.prev_model || t('n_a')));
+    poll.appendChild(kvRow('homepage_new', hp.new_model || t('n_a')));
+    poll.appendChild(kvRow('homepage_v4_transition', hp.v4_transition ? t('yes') : t('no')));
     poll.appendChild(kvRow('github_matched', gh.matched ?? 0));
     poll.appendChild(kvRow('github_new_signals', (gh.new_signals || []).length));
-    poll.appendChild(kvRow('alert_triggered', p.alert ? 'yes' : 'no'));
+    poll.appendChild(kvRow('alert_triggered', p.alert ? t('yes') : t('no')));
     if (p.alert?.signal) poll.appendChild(kvRow('alert_signal', p.alert.signal));
   }
 
@@ -642,7 +876,7 @@ function renderEvents() {
   if (!state.events.length) {
     const n = document.createElement('div');
     n.className = 'evt';
-    n.textContent = 'No events yet.';
+    n.textContent = t('eventsEmpty');
     box.appendChild(n);
     return;
   }
@@ -656,7 +890,7 @@ function renderEvents() {
 
     const title = document.createElement('div');
     title.className = 'evt-title';
-    title.textContent = e.title || '(no title)';
+    title.textContent = e.title || t('noTitle');
 
     const badge = document.createElement('span');
     badge.className = 'evt-badge';
@@ -667,8 +901,8 @@ function renderEvents() {
 
     const meta = document.createElement('div');
     meta.className = 'evt-meta';
-    meta.appendChild(document.createTextNode(`published: ${fmtTime(e.published_at)}`));
-    meta.appendChild(document.createTextNode(`fetched: ${fmtTime(e.fetched_at)}`));
+    meta.appendChild(document.createTextNode(`${t('publishedAt')}: ${fmtTime(e.published_at)}`));
+    meta.appendChild(document.createTextNode(`${t('fetchedAt')}: ${fmtTime(e.fetched_at)}`));
 
     if (e.url) {
       const a = document.createElement('a');
@@ -686,6 +920,7 @@ function renderEvents() {
 }
 
 function renderAll() {
+  applyI18n();
   renderTop();
   renderOfficial();
   renderGithub();
@@ -705,27 +940,33 @@ async function loadEvents() {
 
 async function pollNow() {
   const btn = document.getElementById('pollBtn');
+  state.polling = true;
   btn.disabled = true;
-  btn.textContent = 'Polling...';
+  btn.textContent = t('polling');
   try {
     state.poll = await getJSON('/api/poll', { method: 'POST' });
   } catch (_) {
     // keep previous snapshot
   } finally {
     try { await loadEvents(); } catch (_) {}
+    state.polling = false;
     renderAll();
-    btn.disabled = false;
-    btn.textContent = 'Run Poll Now';
   }
 }
 
-function setupToggle() {
+function updateToggleBtnText() {
   const btn = document.getElementById('toggleBtn');
   const details = document.getElementById('details');
-  btn.addEventListener('click', () => {
+  btn.textContent = details.hidden ? t('openPanel') : t('hidePanel');
+}
+
+function setupToggle() {
+  const details = document.getElementById('details');
+  document.getElementById('toggleBtn').addEventListener('click', () => {
     details.hidden = !details.hidden;
-    btn.textContent = details.hidden ? 'Open Detailed Panel' : 'Hide Detailed Panel';
+    updateToggleBtnText();
   });
+  updateToggleBtnText();
 }
 
 async function saveWebhook() {
@@ -733,10 +974,10 @@ async function saveWebhook() {
   try {
     const res = await postJSON('/api/settings', { webhook_url: v });
     state.cfg = res.config;
-    setSettingsMsg('Webhook updated.', 'ok');
+    setSettingsMsg(t('webhookUpdated'), 'ok');
     renderAll();
   } catch (err) {
-    setSettingsMsg(`Webhook update failed: ${err.message}`, 'err');
+    setSettingsMsg(`${t('webhookUpdateFailed')}: ${err.message}`, 'err');
   }
 }
 
@@ -745,10 +986,10 @@ async function clearWebhook() {
     const res = await postJSON('/api/settings', { webhook_url: '' });
     state.cfg = res.config;
     document.getElementById('webhookInput').value = '';
-    setSettingsMsg('Webhook cleared.', 'ok');
+    setSettingsMsg(t('webhookCleared'), 'ok');
     renderAll();
   } catch (err) {
-    setSettingsMsg(`Clear webhook failed: ${err.message}`, 'err');
+    setSettingsMsg(`${t('clearWebhookFailed')}: ${err.message}`, 'err');
   }
 }
 
@@ -759,11 +1000,11 @@ function fileToBase64(file) {
       const txt = String(reader.result || '');
       const idx = txt.indexOf('base64,');
       if (idx < 0) {
-        reject(new Error('invalid base64 data')); return;
+        reject(new Error(state.lang === 'zh' ? 'base64 数据无效' : 'invalid base64 data')); return;
       }
       resolve(txt.slice(idx + 7));
     };
-    reader.onerror = () => reject(new Error('read file failed'));
+    reader.onerror = () => reject(new Error(state.lang === 'zh' ? '文件读取失败' : 'read file failed'));
     reader.readAsDataURL(file);
   });
 }
@@ -772,7 +1013,7 @@ async function uploadAudio() {
   const fileInput = document.getElementById('audioFile');
   const file = fileInput.files && fileInput.files[0];
   if (!file) {
-    setSettingsMsg('Please choose an mp3 file first.', 'warn');
+    setSettingsMsg(t('chooseMp3First'), 'warn');
     return;
   }
 
@@ -785,27 +1026,27 @@ async function uploadAudio() {
     state.cfg = res.config;
     document.getElementById('audioPathInput').value = res.path || '';
     fileInput.value = '';
-    setSettingsMsg('Custom audio uploaded and activated.', 'ok');
+    setSettingsMsg(t('uploadAudioOk'), 'ok');
     renderAll();
   } catch (err) {
-    setSettingsMsg(`Upload audio failed: ${err.message}`, 'err');
+    setSettingsMsg(`${t('uploadAudioFailed')}: ${err.message}`, 'err');
   }
 }
 
 async function setAudioPath() {
   const p = document.getElementById('audioPathInput').value.trim();
   if (!p) {
-    setSettingsMsg('Please provide an audio path.', 'warn');
+    setSettingsMsg(t('provideAudioPath'), 'warn');
     return;
   }
 
   try {
     const res = await postJSON('/api/settings', { alert_mp3_path: p });
     state.cfg = res.config;
-    setSettingsMsg('Custom audio path activated.', 'ok');
+    setSettingsMsg(t('setAudioPathOk'), 'ok');
     renderAll();
   } catch (err) {
-    setSettingsMsg(`Set audio path failed: ${err.message}`, 'err');
+    setSettingsMsg(`${t('setAudioPathFailed')}: ${err.message}`, 'err');
   }
 }
 
@@ -814,10 +1055,10 @@ async function useDefaultAudio() {
     const res = await postJSON('/api/settings', { alert_mp3_mode: 'default' });
     state.cfg = res.config;
     document.getElementById('audioPathInput').value = state.cfg.audio_path || '';
-    setSettingsMsg('Switched to default audio.', 'ok');
+    setSettingsMsg(t('useDefaultAudioOk'), 'ok');
     renderAll();
   } catch (err) {
-    setSettingsMsg(`Switch default audio failed: ${err.message}`, 'err');
+    setSettingsMsg(`${t('useDefaultAudioFailed')}: ${err.message}`, 'err');
   }
 }
 
@@ -829,8 +1070,57 @@ function setupSettingsActions() {
   document.getElementById('useDefaultAudioBtn').addEventListener('click', useDefaultAudio);
 }
 
+function applyI18n() {
+  document.documentElement.lang = state.lang === 'zh' ? 'zh-CN' : 'en';
+  document.title = t('pageTitle');
+
+  document.getElementById('subtitleText').textContent = t('subtitle');
+  document.getElementById('monitorTitle').textContent = t('monitorTitle');
+  document.getElementById('officialTitle').textContent = t('officialTitle');
+  document.getElementById('ghTitle').textContent = t('githubTitle');
+  document.getElementById('alertTitle').textContent = t('alertTitle');
+  document.getElementById('detailPanelTitle').textContent = t('detailPanelTitle');
+  document.getElementById('runtimeConfigTitle').textContent = t('runtimeConfigTitle');
+  document.getElementById('pollSnapshotTitle').textContent = t('pollSnapshotTitle');
+  document.getElementById('customSettingsTitle').textContent = t('customSettingsTitle');
+  document.getElementById('webhookLabel').textContent = t('webhookLabel');
+  document.getElementById('uploadMp3Label').textContent = t('uploadMp3Label');
+  document.getElementById('audioPathLabel').textContent = t('audioPathLabel');
+  document.getElementById('eventStreamTitle').textContent = t('eventStreamTitle');
+
+  document.getElementById('webhookInput').placeholder = t('webhookPlaceholder');
+  document.getElementById('audioPathInput').placeholder = t('audioPathPlaceholder');
+
+  document.getElementById('saveWebhookBtn').textContent = t('saveWebhook');
+  document.getElementById('clearWebhookBtn').textContent = t('clearWebhook');
+  document.getElementById('uploadAudioBtn').textContent = t('uploadAudio');
+  document.getElementById('useDefaultAudioBtn').textContent = t('useDefaultAudio');
+  document.getElementById('setAudioPathBtn').textContent = t('setAudioPath');
+
+  const pollBtn = document.getElementById('pollBtn');
+  pollBtn.disabled = state.polling;
+  pollBtn.textContent = state.polling ? t('polling') : t('runPoll');
+
+  document.getElementById('langBtn').textContent = langToggleText();
+  updateToggleBtnText();
+}
+
+function setLanguage(lang) {
+  if (lang !== 'zh' && lang !== 'en') return;
+  state.lang = lang;
+  localStorage.setItem('dsv4_lang', lang);
+  renderAll();
+}
+
+function setupLanguage() {
+  document.getElementById('langBtn').addEventListener('click', () => {
+    setLanguage(state.lang === 'zh' ? 'en' : 'zh');
+  });
+}
+
 async function boot() {
   await Promise.all([loadConfig(), loadEvents()]);
+  setupLanguage();
   setupToggle();
   setupSettingsActions();
   renderAll();
