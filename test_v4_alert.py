@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from .audio_alert import play_mp3_loop
-from .config import get_settings
-from .db import connect, get_latest_homepage_model, init_db, insert_events
-from .notify_feishu import send_feishu_webhook
+from audio_alert import play_mp3_loop
+from config import get_settings
+from db import connect, get_latest_homepage_model, init_db, insert_events
+from notify_feishu import send_feishu_webhook
 
 
 def _now_iso() -> str:

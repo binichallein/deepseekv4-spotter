@@ -50,8 +50,8 @@ You can set webhook/audio at runtime in the Detailed Panel:
 - Reset to default bundled music
 
 Local runtime settings are saved to:
-- `deepseek_tracker_demo/runtime_settings.json` (gitignored)
-- uploaded files under `deepseek_tracker_demo/user_audio/` (gitignored)
+- `runtime_settings.json` (gitignored)
+- uploaded files under `user_audio/` (gitignored)
 
 So your private webhook URL will not be committed by default.
 
@@ -60,7 +60,7 @@ So your private webhook URL will not be committed by default.
 From repo root:
 
 ```bash
-python -m deepseek_tracker_demo.lite_server \
+python lite_server.py \
   --interval-seconds 600 \
   --port 8000
 ```
@@ -76,7 +76,7 @@ Then:
 Manual one-shot poll:
 
 ```bash
-python -m deepseek_tracker_demo.lite_poll
+python lite_poll.py
 ```
 
 ## Environment Variables (Optional)

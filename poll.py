@@ -3,12 +3,12 @@ from __future__ import annotations
 import argparse
 from typing import Any, Dict, List
 
-from .config import get_settings
-from .connectors_deepseek_docs import fetch_deepseek_docs_news
-from .connectors_deepseek_homepage import fetch_deepseek_homepage_model
-from .connectors_github import fetch_github_releases
-from .connectors_rss import fetch_rss
-from .db import connect, init_db, insert_events
+from config import get_settings
+from connectors_deepseek_docs import fetch_deepseek_docs_news
+from connectors_deepseek_homepage import fetch_deepseek_homepage_model
+from connectors_github import fetch_github_releases
+from connectors_rss import fetch_rss
+from db import connect, init_db, insert_events
 
 
 def run_poll() -> Dict[str, Any]:
@@ -73,7 +73,7 @@ def main() -> None:
         print(res)
         return
 
-    ap.error("Only --once is supported in this demo. Use: python -m deepseek_tracker_demo.poll --once")
+    ap.error("Only --once is supported in this demo. Use: python poll.py --once")
 
 
 if __name__ == "__main__":

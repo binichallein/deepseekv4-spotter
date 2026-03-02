@@ -4,9 +4,9 @@ from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import get_settings
-from .db import connect, init_db, list_events
-from .poll import run_poll
+from config import get_settings
+from db import connect, init_db, list_events
+from poll import run_poll
 
 app = FastAPI(title="DeepSeek Tracker Demo", version="0.1")
 

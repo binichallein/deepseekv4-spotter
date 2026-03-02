@@ -10,13 +10,13 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict
 from urllib.parse import parse_qs, urlparse
 
-from .config import get_settings
-from .db import connect, init_db, list_events
-from .lite_poll import poll_homepage_once
-from .runtime_settings import load_runtime_settings, save_uploaded_mp3, update_runtime_settings
+from config import get_settings
+from db import connect, init_db, list_events
+from lite_poll import poll_homepage_once
+from runtime_settings import load_runtime_settings, save_uploaded_mp3, update_runtime_settings
 
 
-_DEFAULT_MP3 = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "闹钟 2-哔声_爱给网_aigei_com.mp3"))
+_DEFAULT_MP3 = os.path.abspath(os.path.join(os.path.dirname(__file__), "闹钟 2-哔声_爱给网_aigei_com.mp3"))
 
 
 _HTML = """<!doctype html>

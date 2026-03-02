@@ -7,11 +7,11 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from .audio_alert import play_mp3_loop
-from .config import get_settings
-from .db import connect, get_latest_homepage_model, has_alert_fired, init_db, insert_events
-from .github_watch import find_deepseek_v4_signals
-from .notify_feishu import send_feishu_webhook
+from audio_alert import play_mp3_loop
+from config import get_settings
+from db import connect, get_latest_homepage_model, has_alert_fired, init_db, insert_events
+from github_watch import find_deepseek_v4_signals
+from notify_feishu import send_feishu_webhook
 
 
 def _now_iso() -> str:
