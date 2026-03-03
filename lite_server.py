@@ -84,7 +84,7 @@ def _sanitize_events_for_client(events: list[Dict[str, Any]]) -> list[Dict[str, 
     return out
 
 
-_HTML = """<!doctype html>
+_HTML = r"""<!doctype html>
 <html lang=\"en\">
 <head>
   <meta charset=\"utf-8\" />
