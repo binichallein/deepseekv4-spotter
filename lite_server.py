@@ -36,6 +36,54 @@ def _get_poll_meta() -> Dict[str, Any]:
         return dict(_POLL_META)
 
 
+def _audio_path_label(path: str | None) -> str | None:
+    p = (path or "").strip()
+    if not p:
+        return None
+
+    try:
+        ap = os.path.abspath(p)
+    except Exception:
+        return "custom.mp3"
+
+    default_ap = os.path.abspath(_DEFAULT_MP3)
+    if ap == default_ap:
+        return "default_music.mp3"
+
+    user_audio_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "user_audio"))
+    try:
+        if os.path.commonpath([ap, user_audio_dir]) == user_audio_dir:
+            return f"user_audio/{os.path.basename(ap)}"
+    except Exception:
+        pass
+
+    name = os.path.basename(ap) or "custom.mp3"
+    return name
+
+
+def _sanitize_client_value(v: Any) -> Any:
+    if isinstance(v, dict):
+        return {k: _sanitize_client_value(val) for k, val in v.items()}
+    if isinstance(v, list):
+        return [_sanitize_client_value(x) for x in v]
+    if isinstance(v, str):
+        s = v.strip()
+        # Redact local absolute file paths to avoid leaking machine/user directories.
+        if os.path.isabs(s):
+            base = os.path.basename(s)
+            if base:
+                return base
+        return v
+    return v
+
+
+def _sanitize_events_for_client(events: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    out: list[Dict[str, Any]] = []
+    for e in events:
+        out.append(_sanitize_client_value(e))
+    return out
+
+
 _HTML = """<!doctype html>
 <html lang=\"en\">
 <head>
@@ -868,7 +916,7 @@ function renderDetail() {
     cfg.appendChild(kvRow('regex', state.cfg.watch_deepseek_v4_regex));
     cfg.appendChild(kvRow('webhook_enabled', state.cfg.feishu_webhook_enabled ? t('yes') : t('no')));
     cfg.appendChild(kvRow('audio_enabled', state.cfg.audio_enabled ? t('yes') : t('no')));
-    cfg.appendChild(kvRow('active_audio', state.cfg.audio_path || t('n_a')));
+    cfg.appendChild(kvRow('active_audio', state.cfg.audio_path_label || t('n_a')));
     cfg.appendChild(kvRow('audio_mode', state.cfg.audio_mode || 'default'));
     cfg.appendChild(kvRow('alert_once', state.cfg.alert_once ? t('on') : t('off')));
   }
@@ -892,9 +940,6 @@ function renderDetail() {
 
   const webhookInput = document.getElementById('webhookInput');
   if (state.cfg?.webhook_url) webhookInput.value = state.cfg.webhook_url;
-
-  const audioPathInput = document.getElementById('audioPathInput');
-  if (state.cfg?.audio_path) audioPathInput.value = state.cfg.audio_path;
 }
 
 function renderEvents() {
@@ -1052,7 +1097,7 @@ async function uploadAudio() {
       content_base64: b64,
     });
     state.cfg = res.config;
-    document.getElementById('audioPathInput').value = res.path || '';
+    document.getElementById('audioPathInput').value = '';
     fileInput.value = '';
     setSettingsMsg(t('uploadAudioOk'), 'ok');
     renderAll();
@@ -1082,7 +1127,7 @@ async function useDefaultAudio() {
   try {
     const res = await postJSON('/api/settings', { alert_mp3_mode: 'default' });
     state.cfg = res.config;
-    document.getElementById('audioPathInput').value = state.cfg.audio_path || '';
+    document.getElementById('audioPathInput').value = '';
     setSettingsMsg(t('useDefaultAudioOk'), 'ok');
     renderAll();
   } catch (err) {
@@ -1177,6 +1222,8 @@ def _build_config_payload() -> Dict[str, Any]:
     s = get_settings()
     runtime = load_runtime_settings()
     poll_meta = _get_poll_meta()
+    active_audio_label = _audio_path_label(s.alert_mp3_path)
+    default_audio_label = _audio_path_label(_DEFAULT_MP3 if os.path.exists(_DEFAULT_MP3) else None)
 
     return {
         "provider": s.provider,
@@ -1187,8 +1234,11 @@ def _build_config_payload() -> Dict[str, Any]:
         "feishu_webhook_enabled": bool(s.feishu_webhook_url),
         "webhook_url": s.feishu_webhook_url,
         "audio_enabled": bool(s.alert_mp3_path),
-        "audio_path": s.alert_mp3_path,
-        "default_audio_path": _DEFAULT_MP3 if os.path.exists(_DEFAULT_MP3) else None,
+        # Do not expose local absolute paths in web/API responses.
+        "audio_path": None,
+        "default_audio_path": None,
+        "audio_path_label": active_audio_label,
+        "default_audio_label": default_audio_label,
         "audio_mode": "custom" if "alert_mp3_path" in runtime else "default",
         "alert_loops": s.alert_loops,
         "alert_interval_seconds": s.alert_interval_seconds,
@@ -1258,7 +1308,7 @@ class Handler(BaseHTTPRequestHandler):
                 init_db(conn)
                 events = list_events(conn, provider=s.provider, limit=limit)
 
-            self._send_json(200, {"events": events})
+            self._send_json(200, {"events": _sanitize_events_for_client(events)})
             return
 
         self._send(404, b"not found", "text/plain; charset=utf-8")
@@ -1338,8 +1388,8 @@ class Handler(BaseHTTPRequestHandler):
 
             out_path = save_uploaded_mp3(filename=filename, content=content)
             update_runtime_settings(set_values={"alert_mp3_path": out_path})
-
-            self._send_json(200, {"ok": True, "path": out_path, "config": _build_config_payload()})
+            out_label = _audio_path_label(out_path)
+            self._send_json(200, {"ok": True, "path": out_label, "config": _build_config_payload()})
             return
 
         self._send(404, b"not found", "text/plain; charset=utf-8")

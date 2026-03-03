@@ -205,7 +205,7 @@ def _fire_v4_alert(
             "source": "audio",
             "source_id": f"v4:{_now_iso()}",
             "title": f"Audio alert {'played' if ok else 'failed'} for v4 signal ({signal})",
-            "url": s.alert_mp3_path,
+            "url": None,
             "published_at": None,
             "fetched_at": _now_iso(),
             "payload": {
