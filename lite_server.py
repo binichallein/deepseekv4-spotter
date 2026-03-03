@@ -404,12 +404,12 @@ _HTML = """<!doctype html>
         <div class=\"logo\">DSV4</div>
         <div>
           <h1 class=\"title\">DeepSeekV4 Spotter</h1>
-          <p id=\"subtitleText\" class=\"subtitle\">Realtime monitor for DeepSeek v4 signals from official site and selected GitHub repos.</p>
+          <p id=\"subtitleText\" class=\"subtitle\">Watch website and repo activity to catch DeepSeek v4 clues as early as possible.</p>
         </div>
       </div>
       <div class=\"actions\">
-        <button id=\"pollBtn\">Run Poll Now</button>
-        <button id=\"toggleBtn\">Open Detailed Panel</button>
+        <button id=\"pollBtn\">Check Now</button>
+        <button id=\"toggleBtn\">Open Settings</button>
         <button id=\"langBtn\">中文 / EN</button>
         <a
           class=\"icon-link\"
@@ -428,70 +428,70 @@ _HTML = """<!doctype html>
     <div id=\"pollAttemptLine\" class=\"status\">loading...</div>
 
     <section class=\"monitor\">
-      <h2 id=\"monitorTitle\">Signal Monitor</h2>
+      <h2 id=\"monitorTitle\">Monitor Overview</h2>
       <div class=\"cards\">
         <article class=\"card\">
           <h3 id=\"officialTitle\">Official Site</h3>
           <div class=\"main\" id=\"officialModel\">n/a</div>
           <div class=\"flag\" id=\"officialFlag\">waiting</div>
-          <div class=\"small\" id=\"officialNote\">Baseline target: v3.2</div>
+          <div class=\"small\" id=\"officialNote\">Baseline v3.2, last check n/a</div>
         </article>
 
         <article class=\"card\">
-          <h3 id=\"ghTitle\">GitHub Track</h3>
+          <h3 id=\"ghTitle\">Repo Activity</h3>
           <div class=\"main\" id=\"ghMain\">0</div>
           <div class=\"flag\" id=\"ghFlag\">waiting</div>
           <div class=\"repos\" id=\"repoRows\"></div>
         </article>
 
         <article class=\"card\">
-          <h3 id=\"alertTitle\">Alert Engine</h3>
+          <h3 id=\"alertTitle\">Alert Status</h3>
           <div class=\"main\" id=\"alertMain\">idle</div>
           <div class=\"flag\" id=\"alertFlag\">no trigger</div>
-          <div class=\"small\" id=\"alertNote\">Webhook + audio will fire when v4 signal appears.</div>
+          <div class=\"small\" id=\"alertNote\">When a new clue appears, notification and sound will be triggered.</div>
         </article>
       </div>
     </section>
 
     <section class=\"details\" id=\"details\" hidden>
       <div class=\"details-head\">
-        <strong id=\"detailPanelTitle\">Detailed Panel</strong>
+        <strong id=\"detailPanelTitle\">Settings & Records</strong>
         <div>
-          <a class=\"btn-link\" href=\"/api/config\" target=\"_blank\" rel=\"noreferrer\">/api/config</a>
-          <a class=\"btn-link\" href=\"/api/events\" target=\"_blank\" rel=\"noreferrer\">/api/events</a>
+          <a id=\"apiConfigLink\" class=\"btn-link\" href=\"/api/config\" target=\"_blank\" rel=\"noreferrer\">Config Data</a>
+          <a id=\"apiEventsLink\" class=\"btn-link\" href=\"/api/events\" target=\"_blank\" rel=\"noreferrer\">Event Data</a>
         </div>
       </div>
 
       <div class=\"details-grid\">
         <section class=\"panel\">
-          <h4 id=\"runtimeConfigTitle\">Runtime Config</h4>
+          <h4 id=\"runtimeConfigTitle\">Current Settings</h4>
           <div class=\"kv\" id=\"cfgRows\"></div>
         </section>
 
         <section class=\"panel\">
-          <h4 id=\"pollSnapshotTitle\">Last Poll Snapshot</h4>
+          <h4 id=\"pollSnapshotTitle\">Latest Check Result</h4>
           <div class=\"kv\" id=\"pollRows\"></div>
         </section>
       </div>
 
       <section class=\"panel\" style=\"margin-top:10px\">
-        <h4 id=\"customSettingsTitle\">Custom Settings</h4>
+        <h4 id=\"customSettingsTitle\">Notification & Sound</h4>
         <div class=\"set-box\">
-          <label id=\"webhookLabel\">Webhook URL (Feishu flow webhook)</label>
+          <label id=\"webhookLabel\">Notification URL (Feishu Webhook supported)</label>
           <input type=\"url\" id=\"webhookInput\" placeholder=\"https://www.feishu.cn/flow/api/trigger-webhook/...\" />
           <div class=\"set-actions\">
-            <button id=\"saveWebhookBtn\">Save Webhook</button>
-            <button id=\"clearWebhookBtn\">Clear Webhook</button>
+            <button id=\"saveWebhookBtn\">Save Notification URL</button>
+            <button id=\"clearWebhookBtn\">Clear Notification URL</button>
           </div>
 
-          <label id=\"uploadMp3Label\">Upload custom MP3 and use it</label>
+          <label id=\"uploadMp3Label\">Upload alert sound and use it</label>
           <input type=\"file\" id=\"audioFile\" accept=\".mp3,audio/mpeg\" />
           <div class=\"set-actions\">
-            <button id=\"uploadAudioBtn\">Upload MP3</button>
-            <button id=\"useDefaultAudioBtn\">Use Default Music</button>
+            <button id=\"uploadAudioBtn\">Upload Sound</button>
+            <button id=\"useDefaultAudioBtn\">Use Default Sound</button>
           </div>
 
-          <label id=\"audioPathLabel\">Or set MP3 absolute path manually</label>
+          <label id=\"audioPathLabel\">Or enter a local MP3 path</label>
           <input type=\"text\" id=\"audioPathInput\" placeholder=\"/abs/path/to/your.mp3\" />
           <div class=\"set-actions\">
             <button id=\"setAudioPathBtn\">Use This Path</button>
@@ -502,7 +502,7 @@ _HTML = """<!doctype html>
       </section>
 
       <section class=\"panel\" style=\"margin-top:10px\">
-        <h4 id=\"eventStreamTitle\">Event Stream</h4>
+        <h4 id=\"eventStreamTitle\">Latest Clues</h4>
         <div class=\"events\" id=\"events\"></div>
       </section>
     </section>
@@ -522,63 +522,65 @@ const BASELINE_MODEL = 'v3.2';
 const I18N = {
   zh: {
     pageTitle: 'DeepSeekV4 Spotter',
-    subtitle: '实时监控 DeepSeek 官网与指定 GitHub 仓库的 v4 信号。',
-    runPoll: '立即轮询',
-    polling: '轮询中...',
-    openPanel: '打开详细面板',
-    hidePanel: '收起详细面板',
-    monitorTitle: '信号监控',
-    officialTitle: '官网模型',
-    githubTitle: 'GitHub 追踪',
-    alertTitle: '告警引擎',
-    detailPanelTitle: '详细面板',
-    runtimeConfigTitle: '运行配置',
-    pollSnapshotTitle: '最近轮询快照',
-    customSettingsTitle: '自定义设置',
-    webhookLabel: 'Webhook 地址（飞书 flow webhook）',
+    subtitle: '盯住官网与仓库动态，第一时间发现 DeepSeek v4 线索。',
+    runPoll: '立即检查',
+    polling: '正在检查...',
+    openPanel: '打开设置与记录',
+    hidePanel: '收起设置与记录',
+    monitorTitle: '监控总览',
+    officialTitle: '官网状态',
+    githubTitle: '仓库动态',
+    alertTitle: '提醒状态',
+    detailPanelTitle: '设置与记录',
+    runtimeConfigTitle: '当前设置',
+    pollSnapshotTitle: '本轮检查结果',
+    customSettingsTitle: '通知与铃声',
+    webhookLabel: '通知地址（可填写飞书 Webhook）',
     webhookPlaceholder: 'https://your-webhook-url',
-    saveWebhook: '保存 Webhook',
-    clearWebhook: '清空 Webhook',
-    uploadMp3Label: '上传自定义 MP3 并立即使用',
-    uploadAudio: '上传 MP3',
-    useDefaultAudio: '恢复默认音乐',
-    audioPathLabel: '或手动填写 MP3 绝对路径',
+    saveWebhook: '保存通知地址',
+    clearWebhook: '清空通知地址',
+    uploadMp3Label: '上传提醒铃声并启用',
+    uploadAudio: '上传铃声',
+    useDefaultAudio: '使用默认铃声',
+    audioPathLabel: '或填写本机 MP3 路径',
     audioPathPlaceholder: '/abs/path/to/your.mp3',
     setAudioPath: '使用此路径',
-    eventStreamTitle: '事件流',
+    eventStreamTitle: '最新线索',
+    apiConfig: '配置数据',
+    apiEvents: '事件数据',
     loading: '加载中...',
     waiting: '等待中',
     idle: '空闲',
     noTrigger: '未触发',
-    statusLine: 'provider={provider} | 事件数={events} | 刷新时间={time}',
-    pollAttemptLine: '最近轮询尝试={time}',
+    statusLine: '监控已启动 | 已记录 {events} 条线索 | 页面刷新 {time}',
+    pollAttemptLine: '最近一次检查尝试：{time}',
     officialChanged: '已偏离基线',
     officialStable: '基线稳定',
-    officialNote: '基线={baseline}，最近抓取={lastFetch}',
-    ghSignalFound: '发现新的 v4 信号',
-    ghNoSignal: '暂无 v4 信号',
-    repoSignal: '有信号',
-    repoNoChange: '无变化',
-    alertPreview: '检测到 v4 信号后将触发 Webhook + 音乐播放。',
+    officialNote: '当前基线 {baseline}，最近检查 {lastFetch}',
+    ghSignalFound: '发现新线索',
+    ghNoSignal: '暂未发现新线索',
+    repoSignal: '有线索',
+    repoNoChange: '暂无新线索',
+    alertPreview: '发现新线索后会发送通知并播放铃声。',
     triggered: '已触发',
-    alertActionDone: '动作执行成功',
-    alertPartial: '已触发（部分成功）',
-    alertDetail: 'webhook={webhook}, audio={audio}',
-    webhookUpdated: 'Webhook 已更新。',
-    webhookUpdateFailed: '更新 Webhook 失败',
-    webhookCleared: 'Webhook 已清空。',
-    clearWebhookFailed: '清空 Webhook 失败',
+    alertActionDone: '提醒已执行',
+    alertPartial: '提醒已触发（部分成功）',
+    alertDetail: '通知={webhook}，铃声={audio}',
+    webhookUpdated: '通知地址已更新。',
+    webhookUpdateFailed: '更新通知地址失败',
+    webhookCleared: '通知地址已清空。',
+    clearWebhookFailed: '清空通知地址失败',
     chooseMp3First: '请先选择 mp3 文件。',
-    uploadAudioOk: '自定义音频上传并启用成功。',
-    uploadAudioFailed: '上传音频失败',
-    provideAudioPath: '请填写音频路径。',
-    setAudioPathOk: '自定义音频路径已启用。',
-    setAudioPathFailed: '设置音频路径失败',
-    useDefaultAudioOk: '已切换到默认音频。',
-    useDefaultAudioFailed: '切换默认音频失败',
-    eventsEmpty: '暂无事件。',
+    uploadAudioOk: '铃声已上传并启用。',
+    uploadAudioFailed: '上传铃声失败',
+    provideAudioPath: '请填写铃声路径。',
+    setAudioPathOk: '铃声路径已启用。',
+    setAudioPathFailed: '设置铃声路径失败',
+    useDefaultAudioOk: '已切换到默认铃声。',
+    useDefaultAudioFailed: '切换默认铃声失败',
+    eventsEmpty: '还没有线索。',
     noTitle: '(无标题)',
-    publishedAt: '发布时间',
+    publishedAt: '事件时间',
     fetchedAt: '抓取时间',
     yes: '是',
     no: '否',
@@ -586,85 +588,87 @@ const I18N = {
     off: '关',
     n_a: 'n/a',
     kv: {
-      provider: '提供方',
-      poll_interval: '轮询间隔',
+      provider: '监控对象',
+      poll_interval: '检查频率',
       homepage: '官网地址',
-      repos: '监控仓库',
-      regex: '匹配正则',
-      webhook_enabled: 'Webhook 启用',
-      audio_enabled: '音频启用',
-      active_audio: '当前音频',
-      audio_mode: '音频模式',
-      alert_once: '仅告警一次',
-      last_poll: '最近轮询',
+      repos: '关注仓库',
+      regex: '关键词规则',
+      webhook_enabled: '通知开关',
+      audio_enabled: '铃声开关',
+      active_audio: '当前铃声',
+      audio_mode: '铃声来源',
+      alert_once: '仅提醒一次',
+      last_poll: '最近一次手动检查',
       homepage_prev: '官网上次模型',
       homepage_new: '官网当前模型',
-      homepage_v4_transition: '是否 v4 切换',
-      github_matched: 'GitHub 命中数',
-      github_new_signals: 'GitHub 新信号',
-      alert_triggered: '是否触发告警',
-      alert_signal: '告警信号'
+      homepage_v4_transition: '是否升级到 v4',
+      github_matched: '仓库命中数',
+      github_new_signals: '新线索数量',
+      alert_triggered: '是否触发提醒',
+      alert_signal: '触发来源'
     }
   },
   en: {
     pageTitle: 'DeepSeekV4 Spotter',
-    subtitle: 'Realtime monitor for DeepSeek v4 signals from official site and selected GitHub repos.',
-    runPoll: 'Run Poll Now',
-    polling: 'Polling...',
-    openPanel: 'Open Detailed Panel',
-    hidePanel: 'Hide Detailed Panel',
-    monitorTitle: 'Signal Monitor',
+    subtitle: 'Watch website and repo activity to catch DeepSeek v4 clues as early as possible.',
+    runPoll: 'Check Now',
+    polling: 'Checking...',
+    openPanel: 'Open Settings',
+    hidePanel: 'Hide Settings',
+    monitorTitle: 'Monitor Overview',
     officialTitle: 'Official Site',
-    githubTitle: 'GitHub Track',
-    alertTitle: 'Alert Engine',
-    detailPanelTitle: 'Detailed Panel',
-    runtimeConfigTitle: 'Runtime Config',
-    pollSnapshotTitle: 'Last Poll Snapshot',
-    customSettingsTitle: 'Custom Settings',
-    webhookLabel: 'Webhook URL (Feishu flow webhook)',
+    githubTitle: 'Repo Activity',
+    alertTitle: 'Alert Status',
+    detailPanelTitle: 'Settings & Records',
+    runtimeConfigTitle: 'Current Settings',
+    pollSnapshotTitle: 'Latest Check Result',
+    customSettingsTitle: 'Notification & Sound',
+    webhookLabel: 'Notification URL (Feishu Webhook supported)',
     webhookPlaceholder: 'https://your-webhook-url',
-    saveWebhook: 'Save Webhook',
-    clearWebhook: 'Clear Webhook',
-    uploadMp3Label: 'Upload custom MP3 and use it',
-    uploadAudio: 'Upload MP3',
-    useDefaultAudio: 'Use Default Music',
-    audioPathLabel: 'Or set MP3 absolute path manually',
+    saveWebhook: 'Save Notification URL',
+    clearWebhook: 'Clear Notification URL',
+    uploadMp3Label: 'Upload alert sound and use it',
+    uploadAudio: 'Upload Sound',
+    useDefaultAudio: 'Use Default Sound',
+    audioPathLabel: 'Or enter a local MP3 path',
     audioPathPlaceholder: '/abs/path/to/your.mp3',
     setAudioPath: 'Use This Path',
-    eventStreamTitle: 'Event Stream',
+    eventStreamTitle: 'Latest Clues',
+    apiConfig: 'Config Data',
+    apiEvents: 'Event Data',
     loading: 'loading...',
     waiting: 'waiting',
     idle: 'idle',
     noTrigger: 'no trigger',
-    statusLine: 'provider={provider} | events={events} | refreshed={time}',
-    pollAttemptLine: 'last poll attempt={time}',
-    officialChanged: 'changed from baseline',
+    statusLine: 'Monitoring is running | {events} clues saved | page refreshed {time}',
+    pollAttemptLine: 'Last check attempt: {time}',
+    officialChanged: 'baseline changed',
     officialStable: 'stable baseline',
-    officialNote: 'Baseline={baseline}, last_fetch={lastFetch}',
-    ghSignalFound: 'new v4 signal found',
-    ghNoSignal: 'no v4 signal yet',
-    repoSignal: 'signal',
-    repoNoChange: 'no change',
-    alertPreview: 'Webhook + audio will fire when v4 signal appears.',
+    officialNote: 'Baseline {baseline}, last check {lastFetch}',
+    ghSignalFound: 'new clue found',
+    ghNoSignal: 'no new clue yet',
+    repoSignal: 'clue found',
+    repoNoChange: 'no new clue',
+    alertPreview: 'When a new clue appears, notification and sound will be triggered.',
     triggered: 'triggered',
-    alertActionDone: 'action done',
-    alertPartial: 'triggered with partial result',
-    alertDetail: 'webhook={webhook}, audio={audio}',
-    webhookUpdated: 'Webhook updated.',
-    webhookUpdateFailed: 'Webhook update failed',
-    webhookCleared: 'Webhook cleared.',
-    clearWebhookFailed: 'Clear webhook failed',
+    alertActionDone: 'alert delivered',
+    alertPartial: 'alert triggered (partial success)',
+    alertDetail: 'notification={webhook}, sound={audio}',
+    webhookUpdated: 'Notification URL updated.',
+    webhookUpdateFailed: 'Update notification URL failed',
+    webhookCleared: 'Notification URL cleared.',
+    clearWebhookFailed: 'Clear notification URL failed',
     chooseMp3First: 'Please choose an mp3 file first.',
-    uploadAudioOk: 'Custom audio uploaded and activated.',
-    uploadAudioFailed: 'Upload audio failed',
-    provideAudioPath: 'Please provide an audio path.',
-    setAudioPathOk: 'Custom audio path activated.',
-    setAudioPathFailed: 'Set audio path failed',
-    useDefaultAudioOk: 'Switched to default audio.',
-    useDefaultAudioFailed: 'Switch default audio failed',
-    eventsEmpty: 'No events yet.',
+    uploadAudioOk: 'Sound uploaded and activated.',
+    uploadAudioFailed: 'Upload sound failed',
+    provideAudioPath: 'Please provide a sound path.',
+    setAudioPathOk: 'Sound path activated.',
+    setAudioPathFailed: 'Set sound path failed',
+    useDefaultAudioOk: 'Switched to default sound.',
+    useDefaultAudioFailed: 'Switch default sound failed',
+    eventsEmpty: 'No clues yet.',
     noTitle: '(no title)',
-    publishedAt: 'published',
+    publishedAt: 'event time',
     fetchedAt: 'fetched',
     yes: 'yes',
     no: 'no',
@@ -672,24 +676,24 @@ const I18N = {
     off: 'off',
     n_a: 'n/a',
     kv: {
-      provider: 'provider',
-      poll_interval: 'poll_interval',
-      homepage: 'homepage',
-      repos: 'repos',
-      regex: 'regex',
-      webhook_enabled: 'webhook_enabled',
-      audio_enabled: 'audio_enabled',
-      active_audio: 'active_audio',
-      audio_mode: 'audio_mode',
-      alert_once: 'alert_once',
-      last_poll: 'last_poll',
-      homepage_prev: 'homepage_prev',
-      homepage_new: 'homepage_new',
-      homepage_v4_transition: 'homepage_v4_transition',
-      github_matched: 'github_matched',
-      github_new_signals: 'github_new_signals',
-      alert_triggered: 'alert_triggered',
-      alert_signal: 'alert_signal'
+      provider: 'monitor target',
+      poll_interval: 'check frequency',
+      homepage: 'official site',
+      repos: 'watched repos',
+      regex: 'keyword rule',
+      webhook_enabled: 'notification',
+      audio_enabled: 'sound alert',
+      active_audio: 'current sound',
+      audio_mode: 'sound source',
+      alert_once: 'alert once only',
+      last_poll: 'latest manual check',
+      homepage_prev: 'previous official model',
+      homepage_new: 'current official model',
+      homepage_v4_transition: 'upgraded to v4',
+      github_matched: 'repo matches',
+      github_new_signals: 'new clues',
+      alert_triggered: 'alert triggered',
+      alert_signal: 'trigger source'
     }
   }
 };
@@ -1111,6 +1115,8 @@ function applyI18n() {
   document.getElementById('uploadMp3Label').textContent = t('uploadMp3Label');
   document.getElementById('audioPathLabel').textContent = t('audioPathLabel');
   document.getElementById('eventStreamTitle').textContent = t('eventStreamTitle');
+  document.getElementById('apiConfigLink').textContent = t('apiConfig');
+  document.getElementById('apiEventsLink').textContent = t('apiEvents');
 
   document.getElementById('webhookInput').placeholder = t('webhookPlaceholder');
   document.getElementById('audioPathInput').placeholder = t('audioPathPlaceholder');
