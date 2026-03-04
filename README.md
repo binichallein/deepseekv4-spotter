@@ -22,7 +22,7 @@ DeepSeekV4 Spotter 是一个面向 DeepSeek v4 的早期信号监控器。
 - 调用你自定义的 webhook
 - 播放告警音乐（默认 `default_music.mp3`）
 
-## 一键安装
+## Linux 安装与启动
 在仓库根目录执行：
 
 ```bash
@@ -35,6 +35,15 @@ bash install.sh
 ```bash
 bash install.sh --no-system
 ```
+
+启动服务：
+
+```bash
+python lite_server.py --host 0.0.0.0 --port 8000 --interval-seconds 600
+```
+
+打开：
+- `http://127.0.0.1:8000/`
 
 ## Windows 安装与启动（原生，不走 WSL）
 
@@ -56,15 +65,6 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```bat
 start_windows.bat
 ```
-
-## 启动服务
-
-```bash
-python lite_server.py --host 0.0.0.0 --port 8000 --interval-seconds 600
-```
-
-打开：
-- `http://127.0.0.1:8000/`
 
 ## Web UI
 - 主界面：情绪化监控器视图（简洁展示）

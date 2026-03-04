@@ -22,7 +22,7 @@ Actions:
 - Send your custom webhook
 - Play alert music (default: `default_music.mp3`)
 
-## One-click Install
+## Linux Setup & Start
 Run in repo root:
 
 ```bash
@@ -35,6 +35,15 @@ Install only Python venv/deps (skip system packages):
 ```bash
 bash install.sh --no-system
 ```
+
+Start service:
+
+```bash
+python lite_server.py --host 0.0.0.0 --port 8000 --interval-seconds 600
+```
+
+Open:
+- `http://127.0.0.1:8000/`
 
 ## Windows Native Setup (No WSL)
 
@@ -56,15 +65,6 @@ or double-click:
 ```bat
 start_windows.bat
 ```
-
-## Start
-
-```bash
-python lite_server.py --host 0.0.0.0 --port 8000 --interval-seconds 600
-```
-
-Open:
-- `http://127.0.0.1:8000/`
 
 ## Web UI
 - Main monitor view: simplified emotional console
