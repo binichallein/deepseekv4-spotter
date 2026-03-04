@@ -16,19 +16,70 @@ function Test-Cmd([string]$Name) {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Test-CommandExists([string]$Exe) {
+    if ([System.IO.Path]::IsPathRooted($Exe)) {
+        return [bool](Test-Path $Exe)
+    }
+    return Test-Cmd $Exe
+}
+
+function Resolve-PythonCommand([string]$Exe, [string[]]$Args) {
+    if (-not (Test-CommandExists $Exe)) {
+        return $null
+    }
+
+    try {
+        $out = (& $Exe @($Args + @("--version")) 2>&1 | Out-String).Trim()
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        return $null
+    }
+
+    if ($exitCode -ne 0) {
+        return $null
+    }
+    if ($out -match "Python was not found") {
+        return $null
+    }
+    if ($out -notmatch "Python\s+\d+\.\d+") {
+        return $null
+    }
+
+    return @{
+        Exe = $Exe
+        Args = $Args
+    }
+}
+
 function Get-PythonCommand() {
-    if (Test-Cmd "py") {
-        return @{
-            Exe = "py"
-            Args = @("-3")
+    $cmd = Resolve-PythonCommand "py" @("-3")
+    if ($cmd) {
+        return $cmd
+    }
+
+    $cmd = Resolve-PythonCommand "python" @()
+    if ($cmd) {
+        return $cmd
+    }
+
+    # Fallback: common locations when PATH is stale right after installation.
+    $candidates = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\python.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python310\python.exe"),
+        (Join-Path $env:ProgramFiles "Python312\python.exe"),
+        (Join-Path $env:ProgramFiles "Python311\python.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Python311\python.exe")
+    )
+    foreach ($p in $candidates) {
+        if (-not $p) { continue }
+        $cmd = Resolve-PythonCommand $p @()
+        if ($cmd) {
+            return $cmd
         }
     }
-    if (Test-Cmd "python") {
-        return @{
-            Exe = "python"
-            Args = @()
-        }
-    }
+
     return $null
 }
 
@@ -47,7 +98,7 @@ if (-not $py -and -not $NoSystem -and (Test-Cmd "winget")) {
 }
 
 if (-not $py) {
-    throw "Python 3 not found. Install Python 3.11+ first, then re-run install_windows.ps1"
+    throw "Python 3 not found or not runnable (Microsoft Store alias may be active). Install Python 3.11+ and re-open PowerShell, then re-run install_windows.ps1."
 }
 
 if (-not $NoSystem -and -not (Test-AudioPlayer) -and (Test-Cmd "winget")) {
