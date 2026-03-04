@@ -16,16 +16,20 @@ function Test-Cmd([string]$Name) {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-function Get-PythonInvocation() {
-    if (Test-Cmd "py") { return @("py", "-3") }
-    if (Test-Cmd "python") { return @("python") }
+function Get-PythonCommand() {
+    if (Test-Cmd "py") {
+        return @{
+            Exe = "py"
+            Args = @("-3")
+        }
+    }
+    if (Test-Cmd "python") {
+        return @{
+            Exe = "python"
+            Args = @()
+        }
+    }
     return $null
-}
-
-function Invoke-ArrayCommand([string[]]$Cmd) {
-    if ($Cmd.Count -le 0) { throw "empty_command" }
-    if ($Cmd.Count -eq 1) { & $Cmd[0] }
-    else { & $Cmd[0] @($Cmd[1..($Cmd.Count - 1)]) }
 }
 
 function Test-AudioPlayer() {
@@ -35,11 +39,11 @@ function Test-AudioPlayer() {
     return $false
 }
 
-$py = Get-PythonInvocation
+$py = Get-PythonCommand
 if (-not $py -and -not $NoSystem -and (Test-Cmd "winget")) {
     Write-Info "Python not found. Installing Python 3.11 via winget..."
     winget install --id Python.Python.3.11 -e --source winget --accept-source-agreements --accept-package-agreements | Out-Null
-    $py = Get-PythonInvocation
+    $py = Get-PythonCommand
 }
 
 if (-not $py) {
@@ -53,7 +57,7 @@ if (-not $NoSystem -and -not (Test-AudioPlayer) -and (Test-Cmd "winget")) {
 
 if (-not (Test-Path ".venv\Scripts\python.exe")) {
     Write-Info "Creating virtual environment in .venv"
-    Invoke-ArrayCommand ($py + @("-m", "venv", ".venv"))
+    & $py.Exe @($py.Args + @("-m", "venv", ".venv"))
 }
 
 $VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
