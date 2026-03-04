@@ -36,6 +36,27 @@ bash install.sh
 bash install.sh --no-system
 ```
 
+## Windows 安装与启动（原生，不走 WSL）
+
+在 PowerShell 中进入项目目录后执行：
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\install_windows.ps1
+```
+
+启动方式（二选一）：
+
+```powershell
+.\start_windows.ps1
+```
+
+或双击：
+
+```bat
+start_windows.bat
+```
+
 ## 启动服务
 
 ```bash

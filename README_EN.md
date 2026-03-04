@@ -36,6 +36,27 @@ Install only Python venv/deps (skip system packages):
 bash install.sh --no-system
 ```
 
+## Windows Native Setup (No WSL)
+
+From PowerShell in repo root:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\install_windows.ps1
+```
+
+Start server (choose one):
+
+```powershell
+.\start_windows.ps1
+```
+
+or double-click:
+
+```bat
+start_windows.bat
+```
+
 ## Start
 
 ```bash
