@@ -22,6 +22,13 @@ DeepSeekV4 Spotter 是一个面向 DeepSeek v4 的早期信号监控器。
 - 调用你自定义的 webhook
 - 播放告警音乐（默认 `default_music.mp3`）
 
+## 获取代码
+
+```bash
+git clone https://github.com/binichallein/deepseekv4-spotter.git
+cd deepseekv4-spotter
+```
+
 ## Linux 安装与启动
 在仓库根目录执行：
 

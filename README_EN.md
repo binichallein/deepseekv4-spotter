@@ -22,6 +22,13 @@ Actions:
 - Send your custom webhook
 - Play alert music (default: `default_music.mp3`)
 
+## Clone Repository
+
+```bash
+git clone https://github.com/binichallein/deepseekv4-spotter.git
+cd deepseekv4-spotter
+```
+
 ## Linux Setup & Start
 Run in repo root:
 
