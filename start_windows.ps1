@@ -1,5 +1,5 @@
 param(
-    [string]$Host = "0.0.0.0",
+    [string]$ListenHost = "0.0.0.0",
     [int]$Port = 8000,
     [int]$IntervalSeconds = 600
 )
@@ -15,4 +15,4 @@ if (-not (Test-Path $VenvPython)) {
     throw ".venv\Scripts\python.exe not found. Run install_windows.ps1 first."
 }
 
-& $VenvPython ".\lite_server.py" --host $Host --port $Port --interval-seconds $IntervalSeconds
+& $VenvPython ".\lite_server.py" --host $ListenHost --port $Port --interval-seconds $IntervalSeconds
